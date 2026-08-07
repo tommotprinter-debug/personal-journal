@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#001b8f">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Personal Journal</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<style>
+:root{
+  --blue:#001b8f; --blue2:#00116d; --ink:#ececec; --dim:#aab4d8;
+  --bar:#c8c8c8; --barInk:#001064; --line:#8ea0dd; --shadow:#00093c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#070707;color:var(--ink)}
+body{
+  font-family:"Courier New",Courier,monospace;overscroll-behavior:none;
+  -webkit-tap-highlight-color:transparent;
+}
+button,input,textarea{font-family:inherit}
+#app{
+  width:100%;height:100%;min-height:100%;
+  background:
+    linear-gradient(rgba(255,255,255,.018) 50%,rgba(0,0,0,.028) 50%),
+    radial-gradient(ellipse at center,rgba(40,70,210,.10),transparent 65%),
+    var(--blue);
+  background-size:100% 4px,100% 100%,100% 100%;
+  display:flex;flex-direction:column;position:relative;overflow:hidden;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+  text-shadow:0 0 2px rgba(255,255,255,.22);
+}
+#app:after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 46px rgba(0,0,0,.45)}
+.top{
+  height:34px;flex:none;background:var(--bar);color:var(--barInk);
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  padding:0 10px;font-weight:bold;font-size:14px;text-shadow:none;border-bottom:2px solid #eef;
+}
+.top .center{letter-spacing:.5px}.top .right{text-align:right}
+.journal{
+  width:min(980px,100%);
+  margin:0 auto;
+  flex:1 1 auto;
+  min-height:0;
+  height:100%;
+  padding:10px 12px 8px;
+  display:flex;
+  flex-direction:column
+}
+.frame{
+  border:2px solid var(--line);box-shadow:3px 3px 0 var(--shadow);
+  flex:1 1 auto;min-height:0;height:100%;
+  display:flex;flex-direction:column;background:rgba(0,15,105,.42)
+}
+.frameTitle{
+  display:flex;align-items:center;gap:8px;height:27px;flex:none;border-bottom:1px solid var(--line);
+  padding:0 8px;color:#fff;font-weight:bold;font-size:14px
+}
+.frameTitle .rule{flex:1;height:1px;background:var(--line)}
+.meta{padding:10px 14px 5px;flex:none;font-size:14px;line-height:1.45}
+.metaRow{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.label{color:var(--dim)}
+.titleRow{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:8px}
+#titleInput{
+  width:100%;background:#001270;color:#fff;border:0;border-bottom:1px solid var(--line);
+  outline:0;padding:4px 5px;font:700 16px "Courier New",monospace;text-transform:none;
+}
+#titleInput[readonly],#editor[readonly]{
+  cursor:default;
+}
+#titleInput[readonly]{
+  border-bottom-color:transparent;
+  pointer-events:none;
+}
+#editor[readonly]{
+  caret-color:transparent;
+  user-select:text;
+  -webkit-user-select:text;
+}
+#app.reviewing .mobilebar button:not(#homeBtn):not(#editBtn){
+  display:none;
+}
+#app.reviewing .mobilebar{
+  justify-content:space-between;
+}
+#app.reviewing .meta{
+  padding-bottom:2px;
+}
+
+#titleInput::placeholder{color:#7f91d0}
+#editor{
+  width:100%;
+  flex:1 1 auto;
+  min-height:0;
+  height:100%;
+  resize:none;border:0;outline:0;padding:8px 14px 18px;
+  background:transparent;color:var(--ink);caret-color:#fff;
+  font:17px/1.45 "Courier New",Courier,monospace;letter-spacing:.15px;
+  text-shadow:0 0 2px rgba(255,255,255,.22);
+  overflow:auto
+}
+#editor::selection,#titleInput::selection{background:#d7d7d7;color:#00116d}
+.status{
+  height:31px;flex:none;background:var(--bar);color:var(--barInk);
+  display:flex;align-items:center;gap:9px;padding:0 8px;font-size:13px;font-weight:bold;
+  text-shadow:none;border-top:2px solid #eef;overflow-x:auto;white-space:nowrap
+}
+.status button{font:inherit;border:0;background:transparent;color:inherit;padding:4px 5px;cursor:pointer}
+.status .spacer{flex:1}.key{background:var(--barInk);color:var(--bar);padding:1px 3px}
+.mobilebar{display:none;gap:6px;padding:8px;background:#00116d;border-top:1px solid var(--line);flex-wrap:wrap}
+.mobilebar button,.modal button{
+  font:700 14px "Courier New",monospace;color:#00116d;background:#d6d6d6;
+  border:2px solid #f5f5f5;border-right-color:#777;border-bottom-color:#777;padding:8px 10px;min-height:38px
+}
+.modalWrap{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.58);z-index:20;padding:14px}
+.modal{
+  width:min(680px,100%);max-height:84vh;overflow:auto;color:var(--ink);background:var(--blue2);
+  border:2px solid var(--line);box-shadow:7px 7px 0 #000;padding:12px;font-size:14px
+}
+.modal h2{margin:0 0 12px;font-size:16px;text-align:center;background:var(--bar);color:var(--barInk);padding:5px}
+.entry,.revision{border-bottom:1px dotted var(--line);padding:9px 3px;cursor:pointer}
+.entry:hover,.revision:hover{background:rgba(255,255,255,.08)}
+.entry strong,.revision strong{color:white}.entry small,.revision small{color:var(--dim);display:block;margin-top:4px}
+.entryTitle{color:#fff;font-weight:bold}
+.cmd{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.entryActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.entryActions button{
+  font:700 12px "Courier New",monospace;color:#00116d;background:#d6d6d6;
+  border:2px solid #f5f5f5;border-right-color:#777;border-bottom-color:#777;
+  padding:5px 8px;min-height:28px
+}
+.filterRow{
+  display:grid;grid-template-columns:1fr 150px 150px;gap:7px;margin-bottom:8px
+}
+.filterRow input{
+  min-width:0;
+}
+@media(max-width:700px){
+  .filterRow{grid-template-columns:1fr 1fr}
+  .filterRow .searchWide{grid-column:1/-1}
+}
+.field{width:100%;background:#000b62;color:#fff;border:1px solid var(--line);padding:8px;font:15px "Courier New",monospace;outline:none}
+.toast{
+  position:fixed;left:50%;bottom:50px;transform:translateX(-50%);background:var(--bar);color:var(--barInk);
+  padding:7px 11px;font-weight:bold;z-index:50;display:none;text-shadow:none;box-shadow:4px 4px 0 #000
+}
+.cursorHint{animation:blink 1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
+#saveState[data-state="saving"]{opacity:.7}
+#saveState[data-state="saved"]{font-weight:bold}
+.dangerNote{color:#fff;background:#001270;border:1px solid var(--line);padding:8px;margin-bottom:10px;line-height:1.4}
+#bootScreen,#homeScreen{
+  position:absolute;inset:0;z-index:15;
+  background:
+    linear-gradient(rgba(255,255,255,.018) 50%,rgba(0,0,0,.028) 50%),
+    radial-gradient(ellipse at center,rgba(40,70,210,.10),transparent 65%),
+    var(--blue);
+  background-size:100% 4px,100% 100%,100% 100%;
+  display:none;
+}
+#bootScreen{display:flex;align-items:center;justify-content:center;padding:18px}
+.bootBox,.homeBox{
+  width:min(760px,100%);
+  border:2px solid var(--line);
+  box-shadow:4px 4px 0 var(--shadow);
+  background:rgba(0,15,105,.48);
+  color:var(--ink)
+}
+.bootTitle,.homeTitle{
+  background:var(--bar);
+  color:var(--barInk);
+  font-weight:bold;
+  text-shadow:none;
+  padding:6px 10px;
+  border-bottom:2px solid #eef
+}
+.bootBody{padding:16px 16px 18px;font-size:15px;line-height:1.5}
+.bootLog{white-space:pre-wrap;min-height:150px}
+.bootBarWrap{margin-top:10px;border:1px solid var(--line);padding:4px;background:#001270}
+.bootBar{
+  height:16px;width:0%;
+  background:repeating-linear-gradient(90deg,#d8d8d8 0 10px,#bcc8ef 10px 20px)
+}
+.homeScreenWrap{height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+.homeBody{padding:16px}
+.homeAscii{white-space:pre;font-size:14px;line-height:1.15;margin:0 0 14px;color:#fff}
+.homeLead{color:var(--dim);margin-bottom:12px;line-height:1.5}
+.homeMenu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.homeMenu button{
+  font:700 14px "Courier New",monospace;
+  color:#00116d;background:#d6d6d6;
+  border:2px solid #f5f5f5;border-right-color:#777;border-bottom-color:#777;
+  padding:12px 10px;min-height:48px
+}
+button{
+  transition:filter .08s ease, transform .08s ease, box-shadow .08s ease, background .08s ease;
+}
+button.pressFx{
+  filter:brightness(.72);
+  transform:translate(1px,1px);
+  box-shadow:inset 2px 2px 0 rgba(0,0,0,.35);
+  background:#a9a9a9 !important;
+}
+
+.homeInfo{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;color:var(--dim);line-height:1.45}
+#draftBadge{display:none;margin-top:8px;color:#fff;background:#001270;border:1px solid var(--line);padding:8px}
+#appContent{
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+}
+#appContent.hidden{visibility:hidden}
+
+@media(max-width:700px){
+  .homeMenu{grid-template-columns:1fr}
+  .homeAscii{font-size:11px}
+  .bootBody,.homeBody{padding:12px}
+}
+
+@media(max-width:700px){
+  .top{font-size:12px;height:29px;padding:0 6px;grid-template-columns:1fr auto}
+  .top .left{display:none}.top .center{text-align:left}
+  .journal{padding:4px 5px 4px}
+  .meta{font-size:12px;padding:5px 8px 2px}
+  .metaRow{gap:8px}
+  .titleRow{margin-top:4px}
+  #titleInput{font-size:14px;padding:2px 4px}
+  #editor{font-size:16px;padding:5px 8px 8px}
+  .status{display:none}
+  .mobilebar{display:flex;padding:4px;gap:4px}
+  .mobilebar button{min-height:31px;padding:4px 6px;font-size:11px}
+  .frameTitle{font-size:11px;height:22px}
+}
+@media(orientation:landscape) and (max-height:520px){
+  .journal{padding:5px}.meta{padding:4px 9px 2px;font-size:12px}
+  .titleRow{margin-top:3px}#titleInput{font-size:13px}
+  #editor{font-size:14px;line-height:1.3}.mobilebar{padding:4px}
+  .mobilebar button{min-height:30px;padding:4px 7px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="appContent" class="hidden">
+  <div class="top">
+    <div class="left">FILE&nbsp;&nbsp; EDIT&nbsp;&nbsp; SEARCH</div>
+    <div class="center">PERSONAL JOURNAL</div>
+    <div class="right"><span id="clock"></span></div>
+  </div>
+
+  <main class="journal">
+    <section class="frame">
+      <div class="frameTitle"><span>┤ JOURNAL ENTRY ├</span><span class="rule"></span></div>
+      <div class="meta">
+        <div class="metaRow">
+          <span><span class="label">DATE:</span> <span id="dateLabel"></span></span>
+          <span><span class="label">TIME:</span> <span id="timeLabel"></span></span>
+          <span><span class="label">STATUS:</span> <span id="saveState" data-state="saved">NEW</span></span>
+        </div>
+        <div class="titleRow">
+          <span class="label">ENTRY:</span>
+          <input id="titleInput" maxlength="100" autocomplete="off" placeholder="Give this entry a title">
+        </div>
+      </div>
+      <textarea id="editor" spellcheck="true" autocomplete="off" placeholder="What did today teach you?"></textarea>
+      <div class="mobilebar">
+        <button id="homeBtn">HOME</button>
+        <button id="saveBtn">F2 SAVE</button>
+        <button id="newBtn">F4 NEW</button>
+        <button id="listBtn">F5 JOURNAL</button>
+        <button id="editBtn">EDIT</button>
+        <button id="historyBtn">F6 HISTORY</button>
+        <button id="exportBtn">BACKUP</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="status">
+    <button id="homeBtn2"><span class="key">F1</span> Home</button>
+    <button id="saveBtn2"><span class="key">F2</span> Save</button>
+    <button id="newBtn2"><span class="key">F4</span> New</button>
+    <button id="listBtn2"><span class="key">F5</span> Journal</button>
+    <button id="editBtn2"><span class="key">F3</span> Edit</button>
+    <button id="historyBtn2"><span class="key">F6</span> History</button>
+    <button id="findBtn2"><span class="key">F7</span> Find</button>
+    <span class="spacer"></span>
+    <span id="count">0 CHAR</span>
+    <span class="cursorHint">█</span>
+  
+</footer>
+  </div>
+
+  <div id="bootScreen">
+    <div class="bootBox">
+      <div class="bootTitle">PERSONAL JOURNAL SYSTEM v4.0</div>
+      <div class="bootBody">
+        <div class="bootLog" id="bootLog"></div>
+        <div class="bootBarWrap"><div class="bootBar" id="bootBar"></div></div>
+        <div style="margin-top:10px;color:var(--dim)">Initializing journal environment... <span class="cursorHint">█</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="homeScreen">
+    <div class="homeScreenWrap">
+      <div class="homeBox">
+        <div class="homeTitle">PERSONAL JOURNAL MAIN MENU</div>
+        <div class="homeBody">
+<pre class="homeAscii">  ____  _____ ____   ____   ___  _   _    _    _     
+ |  _ \| ____|  _ \ / ___| / _ \| \ | |  / \  | |    
+ | |_) |  _| | |_) | |    | | | |  \| | / _ \ | |    
+ |  __/| |___|  _ <| |___ | |_| | |\  |/ ___ \| |___ 
+ |_|   |_____|_| \_\\____| \___/|_| \_/_/   \_\_____|
+                                                      </pre>
+          <div class="homeLead">A DOS-inspired journal for daily reflections. Choose an action below to begin.</div>
+          <div class="homeMenu">
+            <button id="homeNewBtn">NEW ENTRY</button>
+            <button id="homeListBtn">JOURNAL DIRECTORY</button>
+            <button id="homeDraftBtn">RESUME DRAFT</button>
+            <button id="homeExportBtn">BACKUP JOURNAL</button>
+          </div>
+          <div id="draftBadge">An unsaved draft is available and can be recovered safely.</div>
+          <div class="homeInfo">
+            Saved entries: <strong id="homeEntryCount">0</strong><br>
+            Tip: old entries open in read-only mode. Press EDIT only when you want to change something.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div id="modalWrap" class="modalWrap">
+  <div class="modal">
+    <h2 id="modalTitle">JOURNAL DIRECTORY</h2>
+    <div id="modalBody"></div>
+    <div class="cmd"><button id="closeModal">ESC CLOSE</button></div>
+  </div>
+</div>
+<div id="toast" class="toast">SAVED</div>
+
+<script>
+(() => {
+  const STORAGE='personalJournal.v1';       // same key: keeps all v1 entries
+  const DRAFT='personalJournal.draft.v2';  // crash/reload recovery
+  const $=s=>document.querySelector(s);
+  const editor=$('#editor'), titleInput=$('#titleInput'), dateLabel=$('#dateLabel'), timeLabel=$('#timeLabel'),
+        saveState=$('#saveState'), count=$('#count'), modalWrap=$('#modalWrap'),
+        modalTitle=$('#modalTitle'), modalBody=$('#modalBody'), toast=$('#toast');
+
+  const appContent=$('#appContent'), bootScreen=$('#bootScreen'), homeScreen=$('#homeScreen'),
+        bootLog=$('#bootLog'), bootBar=$('#bootBar'),
+        homeDraftBtn=$('#homeDraftBtn'), draftBadge=$('#draftBadge'), homeEntryCount=$('#homeEntryCount');
+
+  let data=load();
+  let activeId=null;
+  let createdAt=null;
+  let dirty=false;
+  let autosaveTimer=null;
+  let draftTimer=null;
+  let lastRevisionAt=0;
+  let reviewMode=false;
+
+  function load(){
+    try{
+      const d=JSON.parse(localStorage.getItem(STORAGE)) || {entries:[]};
+      if(!Array.isArray(d.entries)) d.entries=[];
+      d.entries=d.entries.map(e=>({
+        id:e.id || makeId(),
+        created:e.created || new Date().toISOString(),
+        updated:e.updated || e.created || new Date().toISOString(),
+        title:typeof e.title==='string'?e.title:'',
+        text:typeof e.text==='string'?e.text:'',
+        revisions:Array.isArray(e.revisions)?e.revisions:[]
+      }));
+      return d;
+    }catch(e){return {entries:[]}}
+  }
+  function persist(){
+    try{localStorage.setItem(STORAGE,JSON.stringify(data));return true}
+    catch(e){flash('STORAGE FULL — EXPORT BACKUP');return false}
+  }
+  function pad(n){return String(n).padStart(2,'0')}
+  function makeId(){
+    const d=new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}_${Math.random().toString(36).slice(2,6)}`;
+  }
+  function fmtDate(iso){const d=new Date(iso);return `${pad(d.getMonth()+1)}/${pad(d.getDate())}/${d.getFullYear()}`}
+  function fmtTime(iso){const d=new Date(iso);return `${pad(d.getHours())}:${pad(d.getMinutes())}`}
+  function fmtStamp(iso){return `${fmtDate(iso)} ${fmtTime(iso)}`}
+  function current(){return {title:titleInput.value.trimEnd(),text:editor.value,created:createdAt || new Date().toISOString()}}
+  function setState(text,state='saved'){saveState.textContent=text;saveState.dataset.state=state}
+  function isBlank(){return !titleInput.value.trim() && !editor.value.trim()}
+  function entryById(id){return data.entries.find(x=>x.id===id)}
+
+  function setReviewMode(on){
+    reviewMode=!!on;
+    $('#app').classList.toggle('reviewing',reviewMode);
+    if(reviewMode){
+      titleInput.setAttribute('readonly','readonly');
+      editor.setAttribute('readonly','readonly');
+      titleInput.setAttribute('tabindex','-1');
+      editor.setAttribute('tabindex','-1');
+      titleInput.blur();editor.blur();
+      setState('READ ONLY','saved');
+      $('#editBtn').style.display='';
+      $('#editBtn2').style.display='';
+    }else{
+      titleInput.removeAttribute('readonly');
+      editor.removeAttribute('readonly');
+      titleInput.removeAttribute('tabindex');
+      editor.removeAttribute('tabindex');
+      $('#editBtn').style.display='none';
+      $('#editBtn2').style.display='none';
+      if(activeId)setState('EDIT MODE','saved');
+    }
+  }
+
+  function editCurrent(){
+    if(!activeId){setReviewMode(false);titleInput.focus();return}
+    setReviewMode(false);
+    setTimeout(()=>editor.focus(),40);
+  }
+
+
+  function getDraft(){
+    try{
+      const d=JSON.parse(localStorage.getItem(DRAFT));
+      if(!d)return null;
+      if(!String(d.title||'').trim() && !String(d.text||'').trim()) return null;
+      return d;
+    }catch(e){return null}
+  }
+
+  function hasRecoverableDraft(){
+    const d=getDraft();
+    if(!d)return false;
+    const saved=d.activeId?entryById(d.activeId):null;
+    return !saved || saved.title!==d.title || saved.text!==d.text || !d.activeId;
+  }
+
+  function updateHomeInfo(){
+    homeEntryCount.textContent=String(data.entries.length);
+    const draftAvailable=hasRecoverableDraft();
+    homeDraftBtn.disabled=!draftAvailable;
+    draftBadge.style.display=draftAvailable?'block':'none';
+  }
+
+  function returnHome(){
+    if(!reviewMode && (dirty || !isBlank())){
+      save(false);
+    }
+    titleInput.blur();
+    editor.blur();
+    closeModal();
+    showHome();
+  }
+
+  function showEditor(){
+    appContent.classList.remove('hidden');
+    bootScreen.style.display='none';
+    homeScreen.style.display='none';
+  }
+
+  function showHome(){
+    appContent.classList.add('hidden');
+    bootScreen.style.display='none';
+    homeScreen.style.display='block';
+    updateHomeInfo();
+  }
+
+  function runBootSequence(){
+    const lines=[
+      'C:\\> load journal.sys',
+      'Loading resident modules... OK',
+      'Checking local storage... OK',
+      'Preparing archive index... OK',
+      'Draft recovery service... READY',
+      'Launching Personal Journal...'
+    ];
+    appContent.classList.add('hidden');
+    homeScreen.style.display='none';
+    bootScreen.style.display='flex';
+    bootLog.textContent='';
+    bootBar.style.width='0%';
+    let i=0;
+    function step(){
+      if(i<lines.length){
+        bootLog.textContent += lines[i] + '\n';
+        bootBar.style.width = Math.round(((i+1)/lines.length)*100) + '%';
+        i++;
+        setTimeout(step, 220);
+      }else{
+        setTimeout(showHome, 350);
+      }
+    }
+    step();
+  }
+
+  function loadDraftForEditing(){
+    const d=getDraft();
+    if(!d){flash('NO DRAFT AVAILABLE');showHome();return}
+    const saved=d.activeId?entryById(d.activeId):null;
+    activeId=d.activeId && saved ? d.activeId : null;
+    setReviewMode(false);
+    createdAt=d.created || (saved&&saved.created) || new Date().toISOString();
+    titleInput.value=d.title||'';
+    editor.value=d.text||'';
+    dirty=true;
+    dateLabel.textContent=fmtDate(createdAt);
+    timeLabel.textContent=fmtTime(createdAt);
+    updateCount();
+    setState('RECOVERED DRAFT','saving');
+    showEditor();
+    flash('RECOVERED UNSAVED TEXT');
+    scheduleAutosave();
+  }
+
+  function storeDraftNow(){
+    clearTimeout(draftTimer);
+    if(isBlank() && !activeId){localStorage.removeItem(DRAFT);return}
+    const c=current();
+    try{
+      localStorage.setItem(DRAFT,JSON.stringify({
+        activeId,created:c.created,title:titleInput.value,text:editor.value,at:new Date().toISOString()
+      }));
+    }catch(e){}
+  }
+  function scheduleDraft(){
+    clearTimeout(draftTimer);
+    draftTimer=setTimeout(storeDraftNow,120);
+  }
+
+  function addRevision(e,force=false,previousOverride=null){
+    const prev=previousOverride || {title:e.title || '',text:e.text || ''};
+    if(!prev.title.trim() && !prev.text.trim()) return;
+    const now=Date.now();
+    const currentSaved={title:e.title || '',text:e.text || ''};
+    const majorDeletion=(prev.text.length > 80 && editor.value.length < prev.text.length*.70);
+    if(!force && !majorDeletion && now-lastRevisionAt < 15000) return;
+    const latest=e.revisions[e.revisions.length-1];
+    if(latest && latest.title===prev.title && latest.text===prev.text) return;
+    e.revisions.push({at:new Date().toISOString(),title:prev.title,text:prev.text});
+    if(e.revisions.length>30)e.revisions=e.revisions.slice(-30);
+    lastRevisionAt=now;
+  }
+
+  function save(manual=false){
+    clearTimeout(autosaveTimer);
+    if(isBlank()){
+      if(manual)flash('NOTHING TO SAVE');
+      setState(activeId?'AUTO-SAVED':'NEW','saved');
+      localStorage.removeItem(DRAFT);
+      dirty=false;
+      return;
+    }
+    const now=new Date().toISOString();
+    const c=current();
+
+    if(activeId){
+      let e=entryById(activeId);
+      if(!e){
+        activeId=null;
+        return save(manual);
+      }
+      const changed=e.title!==c.title || e.text!==c.text;
+      if(changed){
+        addRevision(e,manual,{title:e.title||'',text:e.text||''});
+        e.title=c.title;e.text=c.text;e.updated=now;
+      }
+    }else{
+      const e={id:makeId(),created:c.created,updated:now,title:c.title,text:c.text,revisions:[]};
+      data.entries.push(e);activeId=e.id;createdAt=e.created;
+    }
+    if(persist()){
+      dirty=false;
+      setState(manual?'SAVED':'AUTO-SAVED','saved');
+      localStorage.removeItem(DRAFT);
+      if(manual)flash('ENTRY SAVED');
+    }
+  }
+
+  function scheduleAutosave(){
+    if(reviewMode)return;
+    dirty=true;setState('EDITING…','saving');updateCount();scheduleDraft();
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(()=>save(false),900);
+  }
+
+  function newEntry(){
+    // Flush any pending work first; this avoids losing even the last keystroke.
+    if(!isBlank() && !reviewMode) save(false);
+    setReviewMode(false);
+    activeId=null;createdAt=new Date().toISOString();dirty=false;
+    titleInput.value='';editor.value='';
+    dateLabel.textContent=fmtDate(createdAt);timeLabel.textContent=fmtTime(createdAt);
+    setState('NEW','saved');updateCount();localStorage.removeItem(DRAFT);
+    showEditor();
+    setTimeout(()=>titleInput.focus(),50);
+  }
+
+  function openEntry(id){
+    if(!isBlank() && !reviewMode)save(false);
+    const e=entryById(id);if(!e)return;
+    activeId=e.id;createdAt=e.created;titleInput.value=e.title||'';editor.value=e.text||'';dirty=false;
+    dateLabel.textContent=fmtDate(e.created);timeLabel.textContent=fmtTime(e.created);
+    updateCount();localStorage.removeItem(DRAFT);closeModal();
+    showEditor();
+    setReviewMode(true);
+  }
+
+  function directory(filter='',fromDate='',toDate=''){
+    if(dirty && !reviewMode)save(false);
+    modalTitle.textContent='JOURNAL DIRECTORY';
+    const q=(filter||'').toLowerCase();
+    const from=fromDate?new Date(fromDate+'T00:00:00'):null;
+    const to=toDate?new Date(toDate+'T23:59:59.999'):null;
+    const arr=[...data.entries].sort((a,b)=>b.created.localeCompare(a.created)).filter(e=>{
+      const hay=`${e.title||''} ${e.text||''} ${fmtDate(e.created)}`.toLowerCase();
+      const d=new Date(e.created);
+      const textOk=!q || hay.includes(q);
+      const fromOk=!from || d>=from;
+      const toOk=!to || d<=to;
+      return textOk && fromOk && toOk;
+    });
+    modalBody.innerHTML=`
+      <div class="filterRow">
+        <input id="searchBox" class="field searchWide" placeholder="Search title, text, or date..." value="${esc(filter)}">
+        <input id="fromDate" class="field" type="date" value="${esc(fromDate)}" title="From date">
+        <input id="toDate" class="field" type="date" value="${esc(toDate)}" title="To date">
+      </div>
+      <div id="entryList">${arr.length?arr.map(e=>`
+        <div class="entry" data-id="${e.id}">
+          <div><strong>${fmtDate(e.created)}&nbsp;&nbsp;${fmtTime(e.created)}</strong></div>
+          <div class="entryTitle">${esc(e.title || '(UNTITLED ENTRY)')}</div>
+          <small>${esc((e.text||'').replace(/\s+/g,' ').slice(0,105))}${(e.text||'').length>105?'…':''}</small>
+          <div class="entryActions">
+            <button data-open="${e.id}">OPEN</button>
+            <button data-delete="${e.id}">DELETE</button>
+          </div>
+        </div>`).join(''):'<div style="padding:18px 3px">NO ENTRIES FOUND.</div>'}
+      </div>`;
+    modalWrap.style.display='grid';
+
+    const rerun=()=>directory($('#searchBox').value,$('#fromDate').value,$('#toDate').value);
+    $('#searchBox').addEventListener('input',rerun);
+    $('#fromDate').addEventListener('change',rerun);
+    $('#toDate').addEventListener('change',rerun);
+
+    modalBody.querySelectorAll('[data-open]').forEach(btn=>{
+      btn.onclick=(ev)=>{ev.stopPropagation();openEntry(btn.dataset.open)};
+    });
+    modalBody.querySelectorAll('[data-delete]').forEach(btn=>{
+      btn.onclick=(ev)=>{ev.stopPropagation();deleteEntry(btn.dataset.delete,filter,fromDate,toDate)};
+    });
+    modalBody.querySelectorAll('.entry').forEach(el=>{
+      el.onclick=(ev)=>{
+        if(ev.target.closest('button'))return;
+        openEntry(el.dataset.id);
+      };
+    });
+  }
+
+  function deleteEntry(id,filter='',fromDate='',toDate=''){
+    const e=entryById(id);if(!e)return;
+    const label=e.title?.trim() || fmtDate(e.created);
+    if(!confirm(`Delete "${label}" permanently?\\n\\nThis removes the entry and its revision history.`))return;
+    data.entries=data.entries.filter(x=>x.id!==id);
+    if(activeId===id){
+      activeId=null;createdAt=new Date().toISOString();titleInput.value='';editor.value='';dirty=false;
+      updateCount();setReviewMode(false);setState('NEW','saved');showHome();
+    }
+    persist();
+    flash('ENTRY DELETED');
+    directory(filter,fromDate,toDate);
+  }
+
+  function history(){
+    if(dirty)save(false);
+    if(!activeId){flash('SAVE AN ENTRY FIRST');return}
+    const e=entryById(activeId);if(!e)return;
+    modalTitle.textContent='ENTRY HISTORY';
+    const revs=[...(e.revisions||[])].reverse();
+    modalBody.innerHTML=`
+      <div class="dangerNote">Earlier snapshots are kept automatically. Select one to preview it; restoring creates another safety snapshot first.</div>
+      ${revs.length?revs.map((r,i)=>`
+        <div class="revision" data-index="${e.revisions.length-1-i}">
+          <strong>${fmtStamp(r.at)}</strong>
+          <small>${esc(r.title||'(UNTITLED)')} — ${esc((r.text||'').replace(/\s+/g,' ').slice(0,100))}</small>
+        </div>`).join(''):'<div style="padding:18px 3px">NO EARLIER SNAPSHOTS YET.</div>'}`;
+    modalWrap.style.display='grid';
+    modalBody.querySelectorAll('.revision').forEach(el=>el.onclick=()=>previewRevision(Number(el.dataset.index)));
+  }
+
+  function previewRevision(index){
+    const e=entryById(activeId),r=e&&e.revisions[index];if(!r)return;
+    modalTitle.textContent='RESTORE SNAPSHOT?';
+    modalBody.innerHTML=`
+      <div class="dangerNote"><strong>${esc(r.title||'(UNTITLED)')}</strong><br>${fmtStamp(r.at)}</div>
+      <div style="white-space:pre-wrap;max-height:42vh;overflow:auto;border:1px solid var(--line);padding:10px">${esc((r.text||'').slice(0,8000))}${(r.text||'').length>8000?'\n\n[PREVIEW TRUNCATED]':''}</div>
+      <div class="cmd"><button id="restoreBtn">RESTORE THIS VERSION</button><button id="backHistBtn">BACK</button></div>`;
+    $('#restoreBtn').onclick=()=>restoreRevision(index);
+    $('#backHistBtn').onclick=history;
+  }
+
+  function restoreRevision(index){
+    const e=entryById(activeId),r=e&&e.revisions[index];if(!r)return;
+    addRevision(e,true,{title:e.title||'',text:e.text||''});
+    e.title=r.title||'';e.text=r.text||'';e.updated=new Date().toISOString();
+    persist();
+    titleInput.value=e.title;editor.value=e.text;updateCount();
+    closeModal();setReviewMode(true);flash('EARLIER VERSION RESTORED');
+  }
+
+  function findDialog(){
+    modalTitle.textContent='FIND IN JOURNAL';
+    modalBody.innerHTML='<input id="findBox" class="field" placeholder="Type a word, phrase, title, or date...">';
+    modalWrap.style.display='grid';setTimeout(()=>$('#findBox').focus(),20);
+    $('#findBox').addEventListener('keydown',e=>{if(e.key==='Enter')directory(e.target.value)});
+  }
+
+  function recoverDraft(){
+    // kept for compatibility; startup now goes to the landing page instead
+    showHome();
+  }
+
+  function closeModal(){modalWrap.style.display='none'}
+  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function flash(msg){toast.textContent=msg;toast.style.display='block';clearTimeout(flash.t);flash.t=setTimeout(()=>toast.style.display='none',1300)}
+  function updateCount(){count.textContent=`${editor.value.length} CHAR`}
+  function exportData(){
+    if(dirty)save(false);
+    const payload={format:'Personal Journal backup v2',exported:new Date().toISOString(),entries:data.entries};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`personal-journal-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  function tick(){
+    const n=new Date();$('#clock').textContent=`${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+    if(!activeId && isBlank()){dateLabel.textContent=fmtDate(createdAt||n.toISOString());timeLabel.textContent=fmtTime(createdAt||n.toISOString())}
+  }
+
+  editor.addEventListener('input',scheduleAutosave);
+  titleInput.addEventListener('input',scheduleAutosave);
+  $('#homeBtn').onclick=$('#homeBtn2').onclick=returnHome;
+  $('#saveBtn').onclick=$('#saveBtn2').onclick=()=>save(true);
+  $('#newBtn').onclick=$('#newBtn2').onclick=newEntry;
+  $('#listBtn').onclick=$('#listBtn2').onclick=()=>directory();
+  $('#editBtn').onclick=$('#editBtn2').onclick=editCurrent;
+  $('#historyBtn').onclick=$('#historyBtn2').onclick=history;
+  $('#findBtn2').onclick=findDialog;
+  $('#exportBtn').onclick=exportData;
+  $('#homeNewBtn').onclick=newEntry;
+  $('#homeListBtn').onclick=()=>directory();
+  $('#homeDraftBtn').onclick=loadDraftForEditing;
+  $('#homeExportBtn').onclick=exportData;
+  $('#closeModal').onclick=closeModal;
+  modalWrap.addEventListener('click',e=>{if(e.target===modalWrap)closeModal()});
+  document.addEventListener('pointerdown',e=>{
+    const btn=e.target.closest('button');
+    if(!btn || btn.disabled)return;
+    btn.classList.remove('pressFx');
+    void btn.offsetWidth;
+    btn.classList.add('pressFx');
+    setTimeout(()=>btn.classList.remove('pressFx'),140);
+  });
+
+
+  window.addEventListener('keydown',e=>{
+    if(e.key==='F1'){e.preventDefault();returnHome()}
+    if(e.key==='F2'){e.preventDefault();if(!reviewMode)save(true)}
+    if(e.key==='F3'){e.preventDefault();editCurrent()}
+    if(e.key==='F4'){e.preventDefault();newEntry()}
+    if(e.key==='F5'){e.preventDefault();directory()}
+    if(e.key==='F6'){e.preventDefault();history()}
+    if(e.key==='F7'){e.preventDefault();findDialog()}
+    if(e.key==='Escape')closeModal();
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save(true)}
+  });
+
+  // Synchronous draft capture protects the latest keystrokes if Android kills the tab/app.
+  window.addEventListener('pagehide',()=>{if(!reviewMode){storeDraftNow();if(dirty)save(false)}});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden && !reviewMode){storeDraftNow();if(dirty)save(false)}});
+  window.addEventListener('beforeunload',storeDraftNow);
+
+  $('#editBtn').style.display='none';$('#editBtn2').style.display='none';
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{});
+    });
+  }
+  setInterval(tick,1000);tick();runBootSequence();
+})();
+</script>
+</body>
+</html>
