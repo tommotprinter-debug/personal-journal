@@ -30,3 +30,12 @@ Use **BACKUP JOURNAL** regularly. Clearing Chrome site data, uninstalling the ap
 ## Updating later
 
 Upload newer app files into the same repository and commit them. GitHub Pages will republish the app. Keeping the same Pages URL is important because local browser storage is associated with that site.
+
+
+## Built-in Android install button
+
+Version 7 adds **INSTALL JOURNAL** to the DOS landing page.
+
+When Chrome exposes the PWA `beforeinstallprompt` event, the button opens Android's native install dialog. If the browser does not expose that event, the app shows the fallback route: **Chrome menu → Install app / Add to Home screen**.
+
+After successful installation, the landing page changes the button to **JOURNAL INSTALLED** when the app is running in standalone mode.

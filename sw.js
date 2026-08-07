@@ -1,4 +1,4 @@
-const CACHE = 'personal-journal-v6-github-1';
+const CACHE = 'personal-journal-v7-github-1';
 const ASSETS = [
   './',
   './index.html',

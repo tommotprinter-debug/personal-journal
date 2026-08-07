@@ -205,6 +205,29 @@ button.pressFx{
 
 .homeInfo{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;color:var(--dim);line-height:1.45}
 #draftBadge{display:none;margin-top:8px;color:#fff;background:#001270;border:1px solid var(--line);padding:8px}
+.installBtn{
+  grid-column:1/-1;
+}
+.installBtn[disabled]{
+  opacity:.48;
+  filter:grayscale(.15);
+  cursor:not-allowed;
+}
+.installBtn.ready{
+  outline:2px solid #eef;
+  outline-offset:2px;
+  animation:installPulse 1.2s steps(2,end) infinite;
+}
+.installHint{
+  margin-top:9px;
+  color:var(--dim);
+  font-size:12px;
+  line-height:1.4;
+}
+@keyframes installPulse{
+  50%{filter:brightness(1.18)}
+}
+
 #appContent{
   height:100%;
   min-height:0;
@@ -320,7 +343,9 @@ button.pressFx{
             <button id="homeListBtn">JOURNAL DIRECTORY</button>
             <button id="homeDraftBtn">RESUME DRAFT</button>
             <button id="homeExportBtn">BACKUP JOURNAL</button>
+            <button id="installJournalBtn" class="installBtn">INSTALL JOURNAL</button>
           </div>
+          <div id="installHint" class="installHint">INSTALL JOURNAL will become active when Android/Chrome confirms the app can be installed.</div>
           <div id="draftBadge">An unsaved draft is available and can be recovered safely.</div>
           <div class="homeInfo">
             Saved entries: <strong id="homeEntryCount">0</strong><br>
@@ -351,7 +376,8 @@ button.pressFx{
 
   const appContent=$('#appContent'), bootScreen=$('#bootScreen'), homeScreen=$('#homeScreen'),
         bootLog=$('#bootLog'), bootBar=$('#bootBar'),
-        homeDraftBtn=$('#homeDraftBtn'), draftBadge=$('#draftBadge'), homeEntryCount=$('#homeEntryCount');
+        homeDraftBtn=$('#homeDraftBtn'), draftBadge=$('#draftBadge'), homeEntryCount=$('#homeEntryCount'),
+        installJournalBtn=$('#installJournalBtn'), installHint=$('#installHint');
 
   let data=load();
   let activeId=null;
@@ -440,6 +466,61 @@ button.pressFx{
     return !saved || saved.title!==d.title || saved.text!==d.text || !d.activeId;
   }
 
+  let deferredInstallPrompt=null;
+
+  function isStandaloneMode(){
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+  }
+
+  function updateInstallUI(){
+    if(isStandaloneMode()){
+      installJournalBtn.disabled=true;
+      installJournalBtn.classList.remove('ready');
+      installJournalBtn.textContent='JOURNAL INSTALLED';
+      installHint.textContent='This copy is already running as an installed app.';
+      return;
+    }
+    if(deferredInstallPrompt){
+      installJournalBtn.disabled=false;
+      installJournalBtn.classList.add('ready');
+      installJournalBtn.textContent='INSTALL JOURNAL';
+      installHint.textContent='Ready for Android installation. Tap INSTALL JOURNAL.';
+    }else{
+      installJournalBtn.disabled=false;
+      installJournalBtn.classList.remove('ready');
+      installJournalBtn.textContent='INSTALL JOURNAL';
+      installHint.textContent='If Android does not show an install dialog, use Chrome menu → Install app / Add to Home screen.';
+    }
+  }
+
+  async function installJournal(){
+    if(isStandaloneMode()){
+      flash('JOURNAL IS ALREADY INSTALLED');
+      return;
+    }
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      try{
+        await deferredInstallPrompt.userChoice;
+      }catch(e){}
+      deferredInstallPrompt=null;
+      updateInstallUI();
+      return;
+    }
+    modalTitle.textContent='INSTALL JOURNAL';
+    modalBody.innerHTML=`
+      <div class="dangerNote">
+        Android has not exposed the automatic install prompt yet.
+      </div>
+      <div style="line-height:1.55">
+        Open this GitHub Pages address in <strong>Google Chrome</strong>, then tap
+        <strong>⋮ → Install app</strong> or <strong>Add to Home screen</strong>.
+        Once Chrome marks the PWA as installable, this button can open the native installation dialog directly.
+      </div>`;
+    modalWrap.style.display='grid';
+  }
+
   function updateHomeInfo(){
     homeEntryCount.textContent=String(data.entries.length);
     const draftAvailable=hasRecoverableDraft();
@@ -468,6 +549,7 @@ button.pressFx{
     bootScreen.style.display='none';
     homeScreen.style.display='block';
     updateHomeInfo();
+    updateInstallUI();
   }
 
   function runBootSequence(){
@@ -756,6 +838,7 @@ button.pressFx{
   $('#homeListBtn').onclick=()=>directory();
   $('#homeDraftBtn').onclick=loadDraftForEditing;
   $('#homeExportBtn').onclick=exportData;
+  $('#installJournalBtn').onclick=installJournal;
   $('#closeModal').onclick=closeModal;
   modalWrap.addEventListener('click',e=>{if(e.target===modalWrap)closeModal()});
   document.addEventListener('pointerdown',e=>{
@@ -784,6 +867,17 @@ button.pressFx{
   window.addEventListener('pagehide',()=>{if(!reviewMode){storeDraftNow();if(dirty)save(false)}});
   document.addEventListener('visibilitychange',()=>{if(document.hidden && !reviewMode){storeDraftNow();if(dirty)save(false)}});
   window.addEventListener('beforeunload',storeDraftNow);
+
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();
+    deferredInstallPrompt=e;
+    updateInstallUI();
+  });
+  window.addEventListener('appinstalled',()=>{
+    deferredInstallPrompt=null;
+    updateInstallUI();
+    flash('JOURNAL INSTALLED');
+  });
 
   $('#editBtn').style.display='none';$('#editBtn2').style.display='none';
   if('serviceWorker' in navigator){
